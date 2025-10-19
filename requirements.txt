@@ -1,0 +1,3 @@
+marimo[recommended]
+pandas
+openpyxl
