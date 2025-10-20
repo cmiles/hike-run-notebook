@@ -1,3 +1,5 @@
 marimo[recommended]
 pandas
 openpyxl
+Requests
+plotly
