@@ -11,7 +11,7 @@ def _():
     from io import StringIO
     import calendar
 
-    url = "https://www.cmiles.info/Data/anonymousActivityData.json"
+    url = "https://data.cmiles.info/anonymousActivityData.json"
     response = requests.get(url)
     response.raise_for_status()
 
@@ -32,8 +32,6 @@ def _():
     lines['startMonth'] = pd.Categorical(lines['start'].dt.month_name(), categories=list(calendar.month_name)[1:], ordered=True)
     lines['startWeekday'] = pd.Categorical(lines['start'].dt.day_name(), categories=list(calendar.day_name), ordered=True)
     lines['startHour'] = pd.Categorical(lines['start'].dt.hour, categories=range(0,25), ordered=True)
-
-    lines
     return lines, pd
 
 
@@ -78,8 +76,6 @@ def _(lines, pd):
         [summaryLastFourWeeks, pd.DataFrame([summaryLastFourWeeksMedianRow])],
         ignore_index=True
     )
-
-    summaryWithMedian
     return mo, summaryLastFourWeeks, summaryWithMedian
 
 
