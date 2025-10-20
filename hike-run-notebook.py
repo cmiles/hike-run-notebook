@@ -11,7 +11,7 @@ def _():
     from io import StringIO
     import calendar
 
-    url = "https://www.dropbox.com/scl/fi/4aq77iavo1qsgq9zfbt96/anonymousActivityData.json?rlkey=6amfqdh6goo14ak7w7rnoavd7&dl=1"
+    url = "https://www.cmiles.info/Data/anonymousActivityData.json"
     response = requests.get(url)
     response.raise_for_status()
 
@@ -41,7 +41,7 @@ def _():
 def _(lines, pd):
     import marimo as mo
     import altair as alt
-    import dateTools as date_tools
+    import date_tools as date_tools
     from datetime import date
     import importlib
 
@@ -202,7 +202,7 @@ def _(mo, pd, summaryLastFourWeeks, summaryWithMedian):
         )
         return fig
 
-    
+
     latest = last3.iloc[0]
     med_vals = median_only.iloc[0]
 
@@ -297,13 +297,6 @@ def _(mo, pd, summaryLastFourWeeks, summaryWithMedian):
     ]
 
     render_flex_dashboard(items, big_title="Last Four Weeks vs. 10 Year Median")
-
-    return
-
-
-@app.cell
-def _(lines):
-    lines.columns
     return
 
 
