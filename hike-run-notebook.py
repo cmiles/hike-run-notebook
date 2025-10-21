@@ -256,7 +256,7 @@ def _(mo, pd, summaryLastFourWeeks, summaryWithMedian):
       .panel {{
         display:flex;
         flex-direction:row;        /* Title -> Gauge -> Bar */
-        flex-wrap:nowrap;
+        flex-wrap:wrap;
         justify-content:center;
         align-items:center;
         gap:12px;
