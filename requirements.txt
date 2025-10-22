@@ -1,6 +1,5 @@
-marimo[recommended]
+marimo
 pandas
-openpyxl
 numpy
 Requests
 plotly
