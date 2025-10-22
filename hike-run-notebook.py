@@ -30,8 +30,11 @@ def _():
     lines['durationMinutes'] = (lines['end'].subtract(lines['start']).dt.total_seconds() / 60).round(0)
 
     lines['startMonth'] = pd.Categorical(lines['start'].dt.month_name(), categories=list(calendar.month_name)[1:], ordered=True)
+    lines['startMonthDateTime'] = lines['start'].values.astype('datetime64[M]')
     lines['startWeekday'] = pd.Categorical(lines['start'].dt.day_name(), categories=list(calendar.day_name), ordered=True)
     lines['startHour'] = pd.Categorical(lines['start'].dt.hour, categories=range(0,25), ordered=True)
+
+    lines
     return lines, pd
 
 
@@ -76,7 +79,7 @@ def _(lines, pd):
         [summaryLastFourWeeks, pd.DataFrame([summaryLastFourWeeksMedianRow])],
         ignore_index=True
     )
-    return mo, summaryLastFourWeeks, summaryWithMedian
+    return date, mo, summaryLastFourWeeks, summaryWithMedian
 
 
 @app.cell
@@ -109,17 +112,18 @@ def _(mo, pd, summaryLastFourWeeks, summaryWithMedian):
 
     def build_bar_fig(
         df_metric: pd.DataFrame, title, suffix="",
-        category_order=None, *, width=480, height=150, margins=(70,16,20,16)  # l,r,t,b
+        category_order=None, *, width=None, height=150, margins=(70,16,20,16)
     ):
         fig = go.Figure()
         fig.add_trace(comparison_bar_trace(df_metric, title, suffix))
         if category_order is None:
             category_order = df_metric["matchLabel"].astype(str).tolist()
+
         l, r, t, b = margins
         fig.update_layout(
-            title=None,         # title sits in the card
-            autosize=False,
-            width=width,
+            title=None,
+            autosize=True,          # ← let Plotly compute size
+            width=width,            # ← None = no hard width
             height=height,
             margin=dict(l=l, r=r, t=t, b=b),
         )
@@ -128,8 +132,8 @@ def _(mo, pd, summaryLastFourWeeks, summaryWithMedian):
             categoryorder="array",
             categoryarray=category_order
         )
-        # compact x-axis
-        fig.update_xaxes(ticks="outside", showgrid=True, griddash="dot")
+        # compact x-axis + prevent label clipping on small screens
+        fig.update_xaxes(ticks="outside", showgrid=True, griddash="dot", automargin=True)
         return fig
 
     def gauge_trace(
@@ -179,32 +183,25 @@ def _(mo, pd, summaryLastFourWeeks, summaryWithMedian):
             domain={"x": [0, 1], "y": [0, 1]},
         )
 
-    def build_gauge_fig(
-        latest_value, median_value, title="", suffix="",
-        *, width=150, height=130, margins=(24, 32, 12, 12),
-        number_font_size=12, delta_font_size=10
-    ):
-        """
-        Smaller fonts + slightly wider margins prevent number overlap with gauge.
-        """
+    def build_gauge_fig(latest_value, median_value, title="", suffix="",
+            *, width=None, height=130, margins=(24, 32, 12, 12),
+            number_font_size=12, delta_font_size=10):
         fig = go.Figure()
         fig.add_trace(gauge_trace(latest_value, median_value, suffix, number_font_size, delta_font_size))
         l, r, t, b = margins
         fig.update_layout(
-            autosize=False,
-            width=width,
+            autosize=True,
+            width=width,            # ← None
             height=height,
             margin=dict(l=l, r=r, t=t, b=b),
         )
         return fig
 
-
     latest = last3.iloc[0]
     med_vals = median_only.iloc[0]
 
-    # Metric figs (sizes controlled here)
     gauge_size = dict(width=160, height=150, margins=(22, 30, 12, 12), number_font_size=16, delta_font_size=12)
-    bar_size   = dict(width=520, height=150, margins=(80, 18, 20, 16))
+    bar_size   = dict(width=None, height=150, margins=(80, 18, 20, 16))
 
     # Distance
     dist_df = comparison_frame("totalDistanceMiles")
@@ -275,7 +272,11 @@ def _(mo, pd, summaryLastFourWeeks, summaryWithMedian):
         white-space:nowrap;        /* keep on one line */
       }}
       /* Plotly figures define size; no CSS sizing here */
-      .panel-gauge, .panel-bar {{ overflow:hidden; }}
+      .panel-gauge {{ overflow:hidden; }}
+      .panel-bar {{ 
+          overflow:hidden; 
+          max-width:520px;
+       }}
     </style>
 
     <p class="dash-title">{big_title}</p>
@@ -293,6 +294,94 @@ def _(mo, pd, summaryLastFourWeeks, summaryWithMedian):
     ]
 
     render_flex_dashboard(items, big_title="Last Four Weeks vs. 10 Year Median")
+    return
+
+
+@app.cell
+def _(date, lines, pd):
+    month_series_start_date = date(lines["start"].min().year + 1, 1, 1)
+    month_series_end_date = date(date.today().year, 12, 31)
+
+    month_frame = pd.date_range(start=month_series_start_date, end=month_series_end_date, freq='MS')
+
+    month_data = pd.DataFrame(index=month_frame)
+    month_data = month_data.reset_index().rename(columns={"index": "month_date_time"})
+
+    month_grouped = lines.groupby(lines['startMonthDateTime']).agg(
+        totalDistanceMiles=('distanceMiles', 'sum'),
+        totalActivities=('folder', 'count'),
+        totalDurationMinutes=('durationMinutes', 'sum'),
+        totalClimbFeet=('climbFeet', 'sum')).reset_index()
+
+    month_data = month_data.merge(
+        month_grouped,
+        left_on='month_date_time',
+        right_on='startMonthDateTime',
+        how='left'
+    ).drop(columns=['startMonthDateTime'])
+
+    month_data.columns
+    return (month_data,)
+
+
+@app.cell
+def _(mo, month_data, pd):
+    import plotly.express as px
+
+    # Ensure datetime type
+    month_data["month_date_time"] = pd.to_datetime(month_data["month_date_time"])
+
+    # Derive Year and Month labels for the grid
+    month_data["Year"] = month_data["month_date_time"].dt.year
+    month_data["MonthNum"] = month_data["month_date_time"].dt.month
+    month_data["Month"] = month_data["month_date_time"].dt.month_name().str[:3]
+
+    # Title years
+    start_year = int(month_data["Year"].min())
+    end_year = int(month_data["Year"].max())
+
+    # Pivot to Year (rows) × Month (cols)
+    month_order = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+    pivot = (
+        month_data
+        .pivot_table(index="Year", columns="Month", values="totalDistanceMiles", aggfunc="sum")
+        .reindex(columns=month_order)             # consistent month order
+        .sort_index()                             # years ascending
+    )
+
+    # Optional: if you prefer visible zeros instead of blank cells, uncomment:
+    # pivot = pivot.fillna(0)
+
+    fig = px.imshow(
+        pivot,
+        color_continuous_scale=[
+            [0.0, "white"],     # 0 → white
+            [0.001, "#e0f3db"], # light mint
+            [0.25, "#a8ddb5"],  # soft teal
+            [0.5, "#43a2ca"],   # mid blue
+            [0.75, "#0868ac"],  # deep blue
+            [1.0, "#084081"]    # max intensity
+        ],
+        aspect="auto",
+        labels=dict(x="Month", y="Year", color="Distance (mi)"),
+        title=f"Monthly Distance ({start_year}–{end_year})",
+        zmin=0   # ensures 0 maps to white
+    )
+
+    fig.update_layout(
+        height=520,
+        margin=dict(l=50, r=20, t=60, b=40),
+        coloraxis_colorbar=dict(title="mi"),
+        xaxis_title=None,
+        yaxis_title=None,
+    )
+
+    fig.update_traces(
+        hovertemplate="Year %{y}<br>Month %{x}<br>Distance %{z:.1f} mi<extra></extra>"
+    )
+
+    mo.ui.plotly(fig)
+
     return
 
 
