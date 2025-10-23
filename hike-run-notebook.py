@@ -41,7 +41,6 @@ def _():
 @app.cell
 def _(lines, pd):
     import marimo as mo
-    import altair as alt
     import date_tools as date_tools
     from datetime import date
     import importlib
