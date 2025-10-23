@@ -1,7 +1,7 @@
 import marimo
 
 __generated_with = "0.17.0"
-app = marimo.App(width="medium")
+app = marimo.App(width="full", app_title="Hike-Run-Dash")
 
 
 @app.cell
@@ -381,7 +381,6 @@ def _(mo, month_data, pd):
     )
 
     mo.ui.plotly(fig)
-
     return
 
 
